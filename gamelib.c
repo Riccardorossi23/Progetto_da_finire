@@ -9,6 +9,8 @@ static void clear_buffer(void);
 // variabili per impostare il gioco
 bool creagiocatori = false;
 int n_giocatori;
+int rigioca; // per rigiocare da capo una nuova partita dopo aver terminato la precedente
+int opzioni;
 
 // struct creazione giocatore
 struct Giocatore *giocatore1;
@@ -18,8 +20,6 @@ struct Giocatore *giocatore3;
 char nome_giocatore1[50];
 char nome_giocatore2[50];
 char nome_giocatore3[50];
-// variabile globale punti vita
-int p_vita_max;
 
 // variabili mappa
 bool creazionemappa = false;
@@ -46,10 +46,11 @@ int scelta_gioco;
 bool vittoria = false;
 int random_combatti;
 struct Nemico *Nemico;
-bool apparso_nemico;
-bool trabocchetto;
+bool apparso_nemico = false;
+bool trabocchetto = false;
 int turni_avanzati;
-bool passa_turno;
+bool passa_turno = false;
+int scelta_combatti_scappa = 0;
 static void pulizia_buffer(void)
 {
     while (getchar() != '\n')
@@ -57,6 +58,80 @@ static void pulizia_buffer(void)
 }
 void termina_gioco()
 {
+    creagiocatori = false;
+    creazionemappa = false;
+    mappa_valida = false;
+    switch (n_giocatori)
+    {
+    case 1:
+        printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        break;
+    case 2:
+        printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        printf("\x1b[32m%s\x1b[37m ha terminato il gioco\n", giocatore2->nome_giocatore);
+        break;
+    case 3:
+        printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        printf("\x1b[32m%s\x1b[37m ha terminato il gioco\n", giocatore2->nome_giocatore);
+        printf("\x1b[35m%s\x1b[37m ha terminato il gioco\n", giocatore3->nome_giocatore);
+        break;
+    default:
+        printf("\x1b[31m errore \x1b[37m\n");
+        break;
+    }
+    n_giocatori = 0;
+    free(giocatore1);
+    free(giocatore2);
+    free(giocatore3);
+    free(nuovastanza);
+    free(temp);
+    free(pLast);
+    free(pFirst);
+    free(prec);
+    scelta_tipo_stanza = 0;
+    scelta_tesoro = 0;
+    scelta_trabocchetto = 0;
+    posizione = 0;
+    numero_stanza = 0;
+    // chiedo se vuoi rigiocare o meno, se si ti manda al menù d'inizio gioco, se è no invece termina la partita
+    printf("vuoi rigiocare si(1)|no(0)? ");
+    scanf("%d", &rigioca);
+    pulizia_buffer();
+    if (rigioca == 1)
+    {
+        do
+        {
+            printf("\n");
+            printf("|||||||||||||||||||MENU PRINICIPALE||||||||||||||||||||||||\n");
+            printf("scegli tra imposta gioco, gioca, termina gioco\n"); // non funziona
+            printf("per scegliere imposta gioco premere 1 \n");
+            printf("per scgliere gioca premere 2 \n");
+            printf("per scegliere termina gioco premere 3 \n");
+            printf("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
+            printf("seleziona le opzioni: ");
+            scanf("%d", &opzioni);
+            while (getchar() != '\n')
+                ;
+            switch (opzioni)
+            {
+            case 1:
+                imposta_gioco(); // non funziona
+                break;
+            case 2:
+                gioca();
+                break;
+            default:
+                printf(" Attenzione! Opzione non valida, per favore inserisci numero da 1 a 3.\n");
+                break;
+            }
+        } while (opzioni != 2);
+        printf("selezioni un valore corretto \n");
+        pulizia_buffer();
+    }
+    else
+    {
+        printf("termina partita\n");
+    }
 }
 void creagiocatore()
 {
@@ -930,14 +1005,17 @@ void stampa_giocatore(struct Giocatore *g)
     if (g->nome_giocatore == giocatore1->nome_giocatore)
     {
         printf("il giocatore \x1b[33m%s\x1b[37m, i suoi punti vita massimi sono %d e i suoi punti vita sono: %d\n", g->nome_giocatore, g->p_vita_max, g->p_vita);
+        printf("il giocatore \x1b[33m%s\x1b[37m ha dadi attacco:%d, dadi difesa:%d\n", g->nome_giocatore, g->dadi_attacco, g->dadi_difesa);
     }
     else if (g->nome_giocatore == giocatore2->nome_giocatore)
     {
         printf("il giocatore \x1b[32m%s\x1b[37m, la sua sanità mentale è %d e i suoi punti vita sono: %d\n", g->nome_giocatore, g->p_vita_max, g->p_vita);
+        printf("il giocatore \x1b[32m%s\x1b[37m ha dadi attacco:%d, dadi difesa:%d\n", g->nome_giocatore, g->dadi_attacco, g->dadi_difesa);
     }
     else if (g->nome_giocatore == giocatore3->nome_giocatore)
     {
         printf("il giocatore \x1b[35m%s\x1b[37m, la sua sanità mentale è %d e i suoi punti vita sono: %d\n", g->nome_giocatore, g->p_vita_max, g->p_vita);
+        printf("il giocatore \x1b[35m%s\x1b[37m ha dadi attacco:%d, dadi difesa:%d\n", g->nome_giocatore, g->dadi_attacco, g->dadi_difesa);
     }
     else
     {
@@ -956,9 +1034,23 @@ void stampa_giocatore(struct Giocatore *g)
         printf("\x1b[31m errore \x1b[37m\n");
         break;
     }
+    printf("puoi scappare ancora:");
+    switch (g->scappare)
+    {
+    case 1:
+        printf("1 volta\n");
+        break;
+    case 2:
+        printf("2 volte\n");
+        break;
+    default:
+        printf("0 volte\n");
+        break;
+    }
 }
 void stampa_zona(struct Giocatore *g)
 {
+    int prendere_tesoro;
     switch (g->posizione->tipo_stanza)
     {
     case 0:
@@ -1025,107 +1117,238 @@ void stampa_zona(struct Giocatore *g)
         printf("Tesoro presente:SI\n");
     }
 }
-void apparizone_nemico(struct Giocatore *g)
+void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
 {
-    time_t t;
-    srand((unsigned)time(&t));
-    int random_nemico = (rand() % 100) + 1;
-    apparso_nemico = false;
-    if (random_nemico <= 25)
+    printf("sei dentro al metodo attacco_difesa\n");
+    int dado1;
+    int dado2;
+    int dado3;
+    int dado4;
+    int dado5;
+    int dado_nem1;
+    int dado_nem2;
+    int dado_nem3;
+    switch (Nemico->classe)
     {
-        Nemico = (struct Nemico *)malloc(sizeof(struct Nemico));
-        apparso_nemico = true;
-        int tipo_nemico = (rand() % 100) + 1;
-        if (tipo_nemico <= 60)
+    case 0:
+        dado1 = rand() % 6 + 1;
+        break;
+    case 1:
+        if (g->dadi_attacco < 2 && g->dadi_difesa < 2)
         {
-            printf("Uno Scheletro è comparso!\n");
-            Nemico->classe = SCHELETRO;
-            Nemico->dadi_attacco = 1;
-            Nemico->dadi_difesa = 1;
-            Nemico->p_vita_max = 1;
-            Nemico->p_vita = p_vita_max;
+            printf("non puoi combattere conto la Guardia perchè ti mancano i dadi\n");
         }
         else
         {
-            printf("Una guardia è comparsa!\n");
-            Nemico->classe = GUARDIA;
-            Nemico->dadi_attacco = 2;
-            Nemico->dadi_difesa = 2;
-            Nemico->p_vita_max = 2;
-            Nemico->p_vita = p_vita_max;
+            dado1 = rand() % 6 + 1;
+            dado2 = rand() % 6 + 1;
         }
+        break;
+    case 2:
+        if (g->dadi_attacco < 3 && g->dadi_difesa < 3)
+        {
+            printf("non puoi combattere conto lo JAFFER perchè ti mancano i dadi\n");
+        }
+        else
+        {
+            dado1 = rand() % 6 + 1;
+            dado2 = rand() % 6 + 1;
+            dado3 = rand() % 6 + 1;
+        }
+        break;
+    default:
+        printf("\x1b[31m errore nei dadi attcco giocatore\x1b[37m\n");
+        break;
     }
-    if (g->posizione == pLast)
+    switch (Nemico->classe)
     {
-        printf("sei arrivato all'ultima stanza\n");
-        printf("Hai raggiunto JAFFAR!\n");
-        Nemico->classe = JAFFAR;
-        Nemico->dadi_attacco = 3;
-        Nemico->dadi_difesa = 3;
-        Nemico->p_vita_max = 3;
-        Nemico->p_vita = p_vita_max;
+    case 0:
+        dado_nem1 = rand() % 6 + 1;
+        break;
+    case 1:
+        dado_nem1 = rand() % 6 + 1;
+        dado_nem2 = rand() % 6 + 1;
+        break;
+    case 2:
+        dado_nem1 = rand() % 6 + 1;
+        dado_nem2 = rand() % 6 + 1;
+        dado_nem3 = rand() % 6 + 1;
+        break;
+    default:
+        printf("\x1b[31m errore nei dadi attcco giocatore\x1b[37m\n");
+        break;
     }
-    if (apparso_nemico == true)
-    {   
-        // Chiedi se vuole combattere o scappare
-        int scelta;
-        printf("Vuoi combattere? ");
-        printf("1-si ");
-        printf(" 2-vuoi scappare ");
-        scanf(" %s", &scelta); // Legge la scelta del giocatore
-        if (scelta == 1)
-        {
-            combatti(g);
-        }
-        else if (scelta == 2)
-        {
-            scappa(g); // Funzione di fuga già definita
-        }
-    }
-
-}
-void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
-{
-    g->dadi_attacco=rand()%6+1;
-        g->dadi_difesa=rand()%6+1;
-        Nemico->dadi_attacco=rand()%6+1;
-        Nemico->dadi_difesa=rand()%6+1;
-    if(random_combatti==1)
+    if (random_combatti == 1)
     {
-        if(g->dadi_attacco>Nemico->dadi_difesa)
+        if (Nemico->classe == 0)
         {
-            if(g->dadi_attacco>=4 && Nemico->dadi_difesa<=3)
+            if (dado1 >= 4 && dado1 > dado_nem1)
             {
-                printf("il %s subisce un danno perdendo 1 vite\n", Nemico->classe);
-                Nemico->p_vita-=1;
-            }else if(g->dadi_attacco<=Nemico->dadi_difesa){
-                printf("il %s ha parato i colpi\n", Nemico->classe);
-            }else if(g->dadi_attacco==6 && Nemico->dadi_difesa<6)
+                if (dado_nem1 != 6 && dado1 == 6)
+                {
+                    printf("Lo Scheletro subisce un danno perdendo 2 vite\n");
+                    Nemico->p_vita -= 2;
+                    g->p_vita++;
+                }
+                else if (dado_nem1 == 6)
+                {
+                    printf("Lo Scheletro ha parato il colpo perchè il suo dado ha fatto 6\n");
+                    printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                    g->dadi_attacco--;
+                }
+                else
+                {
+                    printf("Lo Scheletro subisce un danno perdendo 1 vite\n");
+                    Nemico->p_vita -= 1;
+                    g->p_vita++;
+                }
+            }
+            if (dado1 <= dado_nem1)
             {
-                printf("il %s subisce un danno perdendo 2 vite\n", Nemico->classe);
-                Nemico->p_vita-=2;
-            }else
-            {
-                printf("il %s ha parato tutti i colpi\n", Nemico->classe);
+                printf("Lo Scheletro ha parato il colpo, perchè ha estratto un numero più grande rispetto al giocatore\n");
+                printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                g->dadi_attacco--;
             }
         }
-
-    }else{
-        if(Nemico->dadi_attacco>g->dadi_difesa)
+        else if (Nemico->classe == 1)
         {
-            if(Nemico->dadi_attacco>=4 && g->dadi_difesa<=3)
+            if (dado1 >= 4 && dado1 > dado_nem1 || dado2 >= 4 && dado2 > dado_nem2)
             {
-                printf("il %s subisce un danno perdendo 1 vite\n",g->nome_giocatore);
-                g->p_vita-=1;
-            }else if(Nemico->dadi_attacco<=g->dadi_difesa){
-                printf("il %s ha parato i colpi\n", g->nome_giocatore);
-            }else if(Nemico->dadi_attacco==6 && g->dadi_difesa<6)
+                if (dado_nem1 != 6 || dado_nem2!=6 && dado1 == 6 || dado2==6)
+                {
+                    printf("La Guardia subisce un danno perdendo 2 vite\n");
+                    Nemico->p_vita -= 2;
+                    g->p_vita++;
+                }
+                else if (dado_nem1 == 6 || dado_nem2==6)
+                {
+                    printf("La Guardia ha parato il colpo perchè il suo dado ha fatto 6\n");
+                    printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                    g->dadi_attacco--;
+                }
+                else
+                {
+                    printf("La Guardia subisce un danno perdendo 1 vite\n");
+                    Nemico->p_vita -= 1;
+                    g->p_vita++;
+                }
+            }
+            if (dado1 <= dado_nem1 && dado2 <= dado_nem2)
             {
-                printf("il %s subisce un danno perdendo 2 vite\n", g->nome_giocatore);
-                g->p_vita-=2;
-            }else
+                printf("La Guardia ha parato i colpi, perchè ha estratto un numero più grande rispetto al giocatore\n");
+                printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                g->dadi_attacco--;
+            }
+        }
+        else
+        {
+            if (dado1 >= 4 && dado1 > dado_nem1 || dado2 >= 4 && dado2 > dado_nem2 || dado3 >= 4 && dado3 > dado_nem3)
             {
-                printf("il %s ha parato tutti i colpi\n", g->nome_giocatore);
+                if (dado_nem1 != 6 || dado_nem2!=6 || dado_nem3!=6 && dado1 == 6 || dado2==6 || dado3==6)
+                {
+                    printf("Lo Jaffer subisce un danno perdendo 2 vite\n");
+                    Nemico->p_vita -= 2;
+                    g->p_vita++;
+                }
+                else if (dado_nem1 == 6 || dado_nem2==6 || dado_nem3==6)
+                {
+                    printf("Lo Jaffer ha parato il colpo perchè il suo dado ha fatto 6\n");
+                    printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                    g->dadi_attacco--;
+                }
+                else
+                {
+                    printf("Lo JAFFER subisce un danno perdendo 1 vite\n");
+                    Nemico->p_vita -= 1;
+                    g->p_vita++;
+                }
+            }
+            if (dado1 <= dado_nem1 && dado2 <= dado_nem2 && dado3 <= dado_nem3)
+            {
+                printf("Lo JAFFER ha parato i colpi,erchè ha estratto un numero più grande rispetto al giocatore\n");
+                printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
+                g->dadi_attacco--;
+            }
+            if (Nemico->p_vita <= 0)
+            {
+                vittoria = true;
+                printf("%s ha salvato la principessa il gioco è finito\n", g->nome_giocatore);
+            }
+        }
+    }
+    else
+    {
+        if (dado_nem1 >= 4 && dado_nem1 > dado1)
+        {
+            if (dado1 != 6 && dado_nem1 == 6)
+            {
+                printf("Il giocatore subisce un danno perdendo 2 vite\n");
+                g->p_vita -= 2;
+            }
+            else if (dado1 == 6)
+            {
+                printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+            }
+            else
+            {
+                printf("Il giocatore subisce un danno perdendo 1 vite\n");
+                g->p_vita -= 1;
+            }
+            if (dado_nem1 <= dado1)
+            {
+                printf("Il giocatore ha parato il colpo, perchè ha estratto un numero più grande rispetto al giocatore\n");
+            }
+        }else if (Nemico->classe == 1)
+        {
+            if (dado_nem1 >= 4 && dado_nem1 > dado1 || dado_nem2 >= 4 && dado_nem2 > dado2)
+            {
+                if (dado1 != 6 || dado2!=6 && dado_nem1 == 6 || dado_nem2==6)
+                {
+                    printf("Il giocatore subisce un danno perdendo 2 vite\n");
+                    g->p_vita -= 2;
+                }
+                else if (dado1 == 6 || dado2==6)
+                {
+                    printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+                }
+                else
+                {
+                    printf("Il giocatore subisce un danno perdendo 1 vite\n");
+                    g->p_vita -= 1;
+                }
+            }
+            if (dado_nem1 <= dado1 && dado_nem2 <= dado2)
+            {
+                printf("Il giocatore ha parato i colpi, perchè ha estratto un numero più grande rispetto al giocatore\n");
+            }
+        }
+        else
+        {
+            if (dado_nem1 >= 4 && dado_nem1 > dado1 || dado_nem2 >= 4 && dado_nem2 > dado2 || dado_nem3 >= 4 && dado_nem3 > dado3)
+            {
+                if (dado1 != 6 || dado2!=6 || dado3!=6 && dado_nem1 == 6 || dado_nem2==6 || dado_nem3==6)
+                {
+                    printf("Il giocatore subisce un danno perdendo 2 vite\n");
+                    g->p_vita -= 2;
+                }
+                else if (dado1 == 6 || dado2==6 || dado3==6)
+                {
+                    printf("il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+                }
+                else
+                {
+                    printf("il giocatore subisce un danno perdendo 1 vite\n");
+                    g->p_vita -= 1;
+                }
+            }
+            if (dado_nem1 <= dado1 && dado_nem2 <= dado2 && dado_nem3 <= dado3)
+            {
+                printf("Il giocatore ha parato i colpi,erchè ha estratto un numero più grande rispetto al giocatore\n");
+            }
+            if (Nemico->p_vita <= 0)
+            {
+                vittoria = false;
+                printf("%s non ha salvato la principessa, può continuare a giocare per provarla a salvarla\n", g->nome_giocatore);
             }
         }
     }
@@ -1133,8 +1356,8 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
 void combatti(struct Giocatore *g)
 {
     int dado_nemico = 0;
-int dado_giocatore = 0;
-    printf("Hai deciso di combattere...Buona fortuna\n");
+    int dado_giocatore = 0;
+    printf("\x1b[33mHai deciso di combattere...Buona fortuna\x1b[37m\n");
     printf("per sapere chi attachera e chi difenderà, dovrai tirare un dado inseme al nemico\n");
     printf("chi ha il punteggio più alto attacca\n");
     random_combatti = rand() % 2 + 1;
@@ -1142,50 +1365,99 @@ int dado_giocatore = 0;
     {
         printf("il primo a tirare il dado è:%s\n", g->nome_giocatore);
         dado_giocatore = rand() % 6 + 1;
-        printf("ora il dado lo deve tirare %s\n", Nemico->classe);
+        printf("il numero uscito è:%d", dado_giocatore);
+        switch (Nemico->classe)
+        {
+        case 0:
+            printf("ora il dado lo deve tirare Scheletro\n");
+            break;
+        case 1:
+            printf("ora il dado lo deve tirare Guardia\n");
+            break;
+        default:
+            printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
+        }
         dado_nemico = rand() % 6 + 1;
-        printf("i numeri usciti sono: %d,%d", dado_giocatore, dado_nemico);
+        printf("il numero uscito è:%d", dado_nemico);
         if (dado_giocatore > dado_nemico)
         {
-            printf("attacca per primo:%s,quindi %s si difende", g->nome_giocatore, Nemico->classe);
-            attacco_difesa(g,Nemico);
+            switch (Nemico->classe)
+            {
+            case 0:
+                printf("attacca per primo:%s,quindi Scheletro si difende\n", g->nome_giocatore);
+                attacco_difesa(g, Nemico);
+                break;
+            case 1:
+                printf("attacca per primo:%s,quindi Guardia si difende\n", g->nome_giocatore);
+                attacco_difesa(g, Nemico);
+                break;
+            default:
+                printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
+            }
         }
         else
         {
-            printf("attacca per primo:%s, quindi %s si difende", Nemico->classe, g->nome_giocatore);
-            attacco_difesa(g,Nemico);
+            switch (Nemico->classe)
+            {
+            case 0:
+                printf("attacca per primo: Scheletro, quindi %s si difende\n", g->nome_giocatore);
+                attacco_difesa(g, Nemico);
+                break;
+            case 1:
+                printf("attacca per primo: Guardia,quindi %s si difende\n", g->nome_giocatore);
+                attacco_difesa(g, Nemico);
+                break;
+            default:
+                printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
+            }
         }
     }
     else
     {
-        printf("il primo a tirare il dado è:%s", Nemico->classe);
-        dado_nemico = rand() % 6 + 1;
-        printf("ora il dado lo deve tirare %s\n", g->nome_giocatore);
-        dado_giocatore= rand() % 6 + 1;
-        printf("i numeri usciti sono: %d,%d", dado_nemico, dado_giocatore);
+        switch (Nemico->classe)
+        {
+        case 0:
+            printf("il primo a tirare il dado è: Scheletro\n");
+            dado_nemico = rand() % 6 + 1;
+            printf("il numero uscito è:%d", dado_nemico);
+            break;
+        case 1:
+            printf("il primo a tirare il dado è: Guardia\n");
+            dado_giocatore = rand() % 6 + 1;
+            printf("il numero uscito è:%d", dado_giocatore);
+            break;
+        default:
+            printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
+        }
         if (dado_giocatore > dado_nemico)
         {
-            printf("attacca per primo:%s", g->nome_giocatore);
-            attacco_difesa(g,Nemico);
+            printf("attacca per primo:%s\n", g->nome_giocatore);
+            attacco_difesa(g, Nemico);
         }
         else
         {
-            printf("attacca per primo:%s", Nemico->classe);
-            attacco_difesa(g,Nemico);
+            switch (Nemico->classe)
+            {
+            case 0:
+                printf("attacca per primo: Scheletro\n");
+                attacco_difesa(g, Nemico);
+                break;
+            case 1:
+                printf("attacca per primo: Guardia\n");
+                attacco_difesa(g, Nemico);
+                break;
+            default:
+                printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
+            }
         }
     }
-
-    // inizializzare variabile bool vittoria
-    //  TIRA I DADI
-    //  chi ha il punteggio più alto attacca per primo e l'altro si difende
-    //  per ogni commbattimento vinto si ottiene +1 di vita
 }
 void applica_trabocchetto(struct Giocatore *g)
 {
     switch (g->posizione->tipo_trabocchetto)
     {
     case 0:
-        printf("NESSUN TRABOCCHETTO");
+        printf("NESSUN TRABOCCHETTO\n");
         trabocchetto = false;
         break;
     case 1:
@@ -1230,59 +1502,88 @@ void applica_trabocchetto(struct Giocatore *g)
         break;
     }
 }
-
 void scappa(struct Giocatore *g)
 {
-
     if (apparso_nemico == true)
     {
-        if (g->classe == PRINCIPE)
+        if (g->scappare == 0)
         {
-            if (g->scappare == 0)
-            {
-                printf("\x1b[31m non puoi più scappare, devi combattere per forza!\x1b[37m\n");
-                combatti(g);
-            }
-            else
-            {
-                g->scappare--; // può scappare solo una volta
-                if (g->posizione->tipo_trabocchetto && trabocchetto == true)
-                {
-                    trabocchetto = false; // principe ignora il primo trabocchetto
-                    printf("il primo trabocchetto non viene applicato al PRINCIPE");
-                }
-                else
-                {
-                    trabocchetto = true;
-                    applica_trabocchetto(g);
-                }
-            }
+            printf("\x1b[31m Non puoi più scappare, devi combattere per forza!\x1b[37m\n");
+            combatti(g);
+            return;
+        }
+
+        g->scappare--; // Riduce il numero di fughe disponibili
+
+        if (g->posizione->tipo_trabocchetto && trabocchetto == true)
+        {
+            trabocchetto = false;
+            printf("Il primo trabocchetto non viene applicato al PRINCIPE\n");
         }
         else
         {
-            if (g->scappare == 0)
-            {
-                printf("\x1b[31m non puoi più scappare, devi combattere per forza!\x1b[37m\n");
-                combatti(g);
-            }
-            else
-            {
-                g->scappare--; // può scappare solo due volte
-                if (g->posizione->tipo_trabocchetto && trabocchetto == true)
-                {
-                    trabocchetto = false; // principe ignora il primo trabocchetto
-                }
-                else
-                {
-                    trabocchetto = true;
-                    // applico trabocchetto al giocatore
-                }
-            }
+            trabocchetto = true;
+            applica_trabocchetto(g);
         }
+
+        if (prec == NULL)
+        {
+            printf("\x1b[31m Errore: nessuna zona precedente disponibile per la fuga!\x1b[37m\n");
+            return;
+        }
+        // Scambia la posizione corrente con la posizione precedente
+        struct Stanza *temp = g->posizione;
         g->posizione = prec;
+        prec = temp;
+
+        printf("\x1b[32m Il giocatore scappa nella zona precedente: %p\x1b[37m\n", (void *)prec);
+        g->posizione = prec;
+        prec = NULL;
     }
 }
 
+void apparizone_nemico(struct Giocatore *g)
+{
+    time_t t;
+    srand((unsigned)time(&t));
+    int random_nemico = (rand() % 100) + 1;
+    apparso_nemico = false;
+    if (random_nemico <= 70)
+    {
+        Nemico = (struct Nemico *)malloc(sizeof(struct Nemico));
+        apparso_nemico = true;
+        int tipo_nemico = (rand() % 100) + 1;
+        if (tipo_nemico <= 60)
+        {
+            printf("Uno Scheletro è comparso!\n");
+            Nemico->classe = SCHELETRO;
+            Nemico->dadi_attacco = 1;
+            Nemico->dadi_difesa = 1;
+            Nemico->p_vita_max = 1;
+            Nemico->p_vita = Nemico->p_vita_max;
+        }
+        else
+        {
+            printf("Una guardia è comparsa!\n");
+            Nemico->classe = GUARDIA;
+            Nemico->dadi_attacco = 2;
+            Nemico->dadi_difesa = 2;
+            Nemico->p_vita_max = 2;
+            Nemico->p_vita = Nemico->p_vita_max;
+        }
+    }
+    if (g->posizione == pLast)
+    {
+        printf("sei arrivato all'ultima stanza\n");
+        printf("Hai raggiunto JAFFAR!\n");
+        Nemico->classe = JAFFAR;
+        Nemico->dadi_attacco = 3;
+        Nemico->dadi_difesa = 3;
+        Nemico->p_vita_max = 3;
+        Nemico->p_vita = Nemico->p_vita_max;
+        printf("\x1b[33m se sconfiggi lo JAFFER salvi la principessa e il gioco finisce\n\x1b[37m");
+    }
+}
 void avanza(struct Giocatore *g)
 {
     time_t t;
@@ -1291,74 +1592,101 @@ void avanza(struct Giocatore *g)
     if (turni_avanzati == 0 || n_giocatori == 1) // Se è il primo turno o solo un giocatore
     {
         struct Stanza *nuovastanza = g->posizione;
-        printf("I giocatori avanzeranno nell'unica possibile direzione:\nSOPRA, DESTRA, SINISTRA, SOTTO\n");
-        g->posizione = nuovastanza->next;
-        printf("giocatore avanzato\n");
+        prec = g->posizione; // Salva la stanza attuale come precedente
+
+        // Verifica e avanza seguendo la priorità: SOPRA > DESTRA > SINISTRA > SOTTO
+        if (nuovastanza->stanza_sopra != NULL)
+        {
+            g->posizione = nuovastanza->stanza_sopra;
+            printf("Il giocatore avanza SOPRA.\n");
+        }
+        else if (nuovastanza->stanza_destra != NULL)
+        {
+            g->posizione = nuovastanza->stanza_destra;
+            printf("Il giocatore avanza a DESTRA.\n");
+        }
+        else if (nuovastanza->stanza_sinistra != NULL)
+        {
+            g->posizione = nuovastanza->stanza_sinistra;
+            printf("Il giocatore avanza a SINISTRA.\n");
+        }
+        else if (nuovastanza->stanza_sotto != NULL)
+        {
+            g->posizione = nuovastanza->stanza_sotto;
+            printf("Il giocatore avanza SOTTO.\n");
+        }
+        else
+        {
+            printf("\x1b[31m Errore: nessuna direzione disponibile per avanzare! \x1b[37m\n");
+            return;
+        }
+
+        printf("Giocatore avanzato nella nuova stanza: %p\n", (void *)g->posizione);
+        printf("Stanza precedente salvata in prec: %p\n", (void *)prec);
+
+        apparizone_nemico(g);
+
+        // Gestione del trabocchetto
         switch (g->posizione->tipo_trabocchetto)
         {
         case 0:
-            printf("NESSUN TRABOCCHETTO");
+            printf("NESSUN TRABOCCHETTO\n");
             trabocchetto = false;
             break;
         case 1:
-            printf("sei caduto in un trabocchetto: ");
-            printf("Tegola\n");
-            printf("il giocatore perde un punto vita\n");
+            printf("Sei caduto in un trabocchetto: Tegola\n");
+            printf("Il giocatore perde un punto vita\n");
             applica_trabocchetto(g);
             trabocchetto = true;
             break;
         case 2:
-            printf("sei caduto in un trabocchetto: ");
-            printf("Lame\n");
-            printf("il giocatore perde due punti vita\n");
+            printf("Sei caduto in un trabocchetto: Lame\n");
+            printf("Il giocatore perde due punti vita\n");
             applica_trabocchetto(g);
             trabocchetto = true;
             break;
         case 3:
-            printf("sei caduto in un trabocchetto: ");
-            printf("Caduta\n");
+            printf("Sei caduto in un trabocchetto: Caduta\n");
             applica_trabocchetto(g);
             trabocchetto = true;
             break;
         case 4:
-            printf("sei caduto in un trabocchetto: ");
-            printf("Burrone\n");
+            printf("Sei caduto in un trabocchetto: Burrone\n");
             applica_trabocchetto(g);
             trabocchetto = true;
             break;
         default:
-            printf("\x1b[31m errore trabocchetto\x1b[37m\n");
+            printf("\x1b[31m Errore trabocchetto\x1b[37m\n");
             break;
         }
     }
     else
     {
-        printf("\x1b[31m non puoi avanzare 2 volte di fila \x1b[37m\n");
+        printf("\x1b[31m Non puoi avanzare 2 volte di fila \x1b[37m\n");
     }
+
     turni_avanzati++;
 }
+
 void prendi_tesoro(struct Giocatore *g)
 {
     if (g->posizione->tipo_tesoro != NULL)
     {
-        printf("in questa stanza c'è un \x1b[33m TESORO \x1b[37m\n");
+        printf("in questa stanza c'è un \x1b[33mTESORO \x1b[37m\n");
         printf("il tesoro trovato è: ");
-        switch (g->posizione->tipo_stanza)
+        switch (g->posizione->tipo_tesoro)
         {
-        case 0:
-            printf("Nessun Tesoro\n");
-            break;
         case 1:
             printf("Verde Veleno\n");
             g->p_vita--;
-            printf("ora hai:%u", g->p_vita);
+            printf("ora hai:%u di vita", g->p_vita);
             break;
         case 2:
             printf("Blu Guarigione\n");
             if (g->p_vita < g->p_vita_max)
             {
                 g->p_vita++;
-                printf("ora hai:%u", g->p_vita_max);
+                printf("ora hai di nuovo punti vita:%u\n", g->p_vita);
             }
             else
             {
@@ -1391,15 +1719,118 @@ void prendi_tesoro(struct Giocatore *g)
     }
     g->posizione->tipo_tesoro = 0;
 }
+
 void cerca_porta_segreta(struct Giocatore *g)
 {
-    // per le direzioni in cui non si può procedere è possibile cercare una porta segreta
-    // 1° volta che ci cerca, la probabilità di comparire è:33%, la 2° volta:20% e la 3°:15%.
-    // se viene trovata una nuova stanza viene aggiunta alla mappa(malloc), valori della stanza generati con genera_mappa_random.
-    // non possono apparire nemici
-    // se un giocatore avanza in un turno, non può cercare la porta segreta
-    // infine il giocatopre ritorna nella stanza dove ha trovato la prota segreta
+    if (g == NULL || g->posizione == NULL)
+    {
+        printf("\x1b[31mErrore: giocatore o posizione non valida.\x1b[37m\n");
+        return;
+    }
+
+    struct Stanza *stanza_corrente = g->posizione;
+    int direzione, probabilita;
+    static int tentativi[4] = {0}; // Conta i tentativi per ciascuna direzione (0=Sopra, 1=Sotto, 2=Destra, 3=Sinistra)
+    int max_tentativi = 3;
+    int probabilita_tentativi[3] = {33, 20, 15}; // Probabilità di successo per i tre tentativi
+
+    // Se tutte le direzioni hanno esaurito i tentativi, non si può più cercare
+    if (tentativi[0] >= max_tentativi && tentativi[1] >= max_tentativi &&
+        tentativi[2] >= max_tentativi && tentativi[3] >= max_tentativi)
+    {
+        printf("Hai esaurito tutti i tentativi per trovare porte segrete.\n");
+        return;
+    }
+
+    printf("Scegli una direzione in cui cercare una porta segreta:\n");
+    printf("1 - Sopra\n2 - Sotto\n3 - Destra\n4 - Sinistra\n");
+
+    do
+    {
+        scanf("%d", &direzione);
+        if (direzione < 1 || direzione > 4)
+        {
+            printf("\x1b[31mErrore: inserire un numero tra 1 e 4.\x1b[37m\n");
+        }
+        else if ((direzione == 1 && stanza_corrente->stanza_sopra != NULL) ||
+                 (direzione == 2 && stanza_corrente->stanza_sotto != NULL) ||
+                 (direzione == 3 && stanza_corrente->stanza_destra != NULL) ||
+                 (direzione == 4 && stanza_corrente->stanza_sinistra != NULL))
+        {
+            printf("C'è già una stanza in questa direzione, non puoi cercare una porta segreta.\n");
+            return;
+        }
+        else if (tentativi[direzione - 1] >= max_tentativi)
+        {
+            printf("Hai già cercato il massimo delle volte in questa direzione.\n");
+            return;
+        }
+    } while (direzione < 1 || direzione > 4);
+
+    int tentativo_corrente = tentativi[direzione - 1];
+    probabilita = probabilita_tentativi[tentativo_corrente];
+
+    int esito = rand() % 100; // Genera un numero casuale tra 0 e 99
+
+    if (esito < probabilita)
+    {
+        printf("\x1b[32mComplimenti! Hai trovato una porta segreta!\x1b[37m\n");
+
+        struct Stanza *nuova_stanza_segreta = (struct Stanza *)malloc(sizeof(struct Stanza));
+        if (!nuova_stanza_segreta)
+        {
+            printf("\x1b[31mErrore di allocazione memoria per la stanza segreta.\x1b[37m\n");
+            return;
+        }
+
+        // Genera casualmente la nuova stanza
+        nuova_stanza_segreta->tipo_stanza = rand() % 10;
+        nuova_stanza_segreta->tipo_trabocchetto = NESSUNO; // Nessun nemico o trabocchetto nelle stanze segrete
+        nuova_stanza_segreta->tipo_tesoro = (rand() % 5) + 1;
+        nuova_stanza_segreta->stanza_sopra = NULL;
+        nuova_stanza_segreta->stanza_sotto = NULL;
+        nuova_stanza_segreta->stanza_destra = NULL;
+        nuova_stanza_segreta->stanza_sinistra = NULL;
+        nuova_stanza_segreta->next = NULL;
+
+        // Collega la nuova stanza nella direzione scelta
+        switch (direzione)
+        {
+        case 1: // Sopra
+            stanza_corrente->stanza_sopra = nuova_stanza_segreta;
+            nuova_stanza_segreta->stanza_sotto = stanza_corrente;
+            break;
+        case 2: // Sotto
+            stanza_corrente->stanza_sotto = nuova_stanza_segreta;
+            nuova_stanza_segreta->stanza_sopra = stanza_corrente;
+            break;
+        case 3: // Destra
+            stanza_corrente->stanza_destra = nuova_stanza_segreta;
+            nuova_stanza_segreta->stanza_sinistra = stanza_corrente;
+            break;
+        case 4: // Sinistra
+            stanza_corrente->stanza_sinistra = nuova_stanza_segreta;
+            nuova_stanza_segreta->stanza_destra = stanza_corrente;
+            break;
+        }
+
+        // Il giocatore si sposta temporaneamente nella stanza segreta
+        g->posizione = nuova_stanza_segreta;
+        printf("Ti sei spostato nella stanza segreta!\n");
+
+        // Ritorno automatico alla stanza originale
+        g->posizione = stanza_corrente;
+        printf("Sei tornato alla stanza iniziale.\n");
+    }
+    else
+    {
+        printf("\x1b[31mNon hai trovato nulla...\x1b[37m\n");
+    }
+
+    // Incrementa il numero di tentativi per la direzione scelta
+    tentativi[direzione - 1]++;
 }
+
 void passa(struct Giocatore *g) // passo il turno al giocatore successivo //non funziona
 {
     printf("turno passato\n");
@@ -1407,38 +1838,64 @@ void passa(struct Giocatore *g) // passo il turno al giocatore successivo //non 
 }
 void menu_giocatore1()
 {
+    printf("sono nel menu 1 giocatore\n");
     do
     {
         do
         {
-            if (giocatore1->p_vita == 0)
+            if (giocatore1->p_vita <= 0)
             {
                 printf("\x1b[33m%s\x1b[37m è morto\n", giocatore1->nome_giocatore);
                 termina_gioco();
-                return;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1449,22 +1906,16 @@ void menu_giocatore1()
                 break;
             case 3:
                 avanza(giocatore1);
-                apparizone_nemico(giocatore1);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore1);
                 break;
             case 5:
-                combatti(giocatore1);
-                break;
-            case 6:
-                scappa(giocatore1);
-                break;
-            case 7:
                 prendi_tesoro(giocatore1);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore1);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1477,6 +1928,7 @@ void menu_giocatore1()
 }
 void menu_giocatore2()
 {
+    printf("sono nel menu 2 giocatori\n");
     do
     {
         do
@@ -1484,31 +1936,56 @@ void menu_giocatore2()
             if (giocatore1->p_vita <= 0)
             {
                 printf("\x1b[33m%s\x1b[37m è morto\n", giocatore1->nome_giocatore);
-                termina_gioco();
-                return;
+                break;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1519,22 +1996,16 @@ void menu_giocatore2()
                 break;
             case 3:
                 avanza(giocatore1);
-                apparizone_nemico(giocatore1);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore1);
                 break;
             case 5:
-                combatti(giocatore1);
-                break;
-            case 6:
-                scappa(giocatore1);
-                break;
-            case 7:
                 prendi_tesoro(giocatore1);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore1);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1547,31 +2018,56 @@ void menu_giocatore2()
             if (giocatore2->p_vita <= 0)
             {
                 printf("\x1b[32m%s\x1b[37m è morto\n", giocatore2->nome_giocatore);
-                termina_gioco();
-                return;
+                break;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1582,22 +2078,16 @@ void menu_giocatore2()
                 break;
             case 3:
                 avanza(giocatore2);
-                apparizone_nemico(giocatore2);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore2);
                 break;
             case 5:
-                combatti(giocatore2);
-                break;
-            case 6:
-                scappa(giocatore2);
-                break;
-            case 7:
                 prendi_tesoro(giocatore2);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore2);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1605,7 +2095,12 @@ void menu_giocatore2()
             }
         } while (passa_turno == false);
         passa_turno = false;
-    } while (giocatore1->p_vita > 0 && giocatore2->p_vita > 0 && vittoria == false);
+        if (giocatore1->p_vita <= 0 && giocatore2->p_vita <= 0)
+        {
+            printf("\x1b[32msono morti entrambi i giocatori\x1b[37m\n");
+            termina_gioco();
+        }
+    } while (vittoria == false);
 }
 void menu_giocatore3()
 {
@@ -1619,28 +2114,54 @@ void menu_giocatore3()
                 termina_gioco();
                 return;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1651,22 +2172,16 @@ void menu_giocatore3()
                 break;
             case 3:
                 avanza(giocatore1);
-                apparizone_nemico(giocatore1);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore1);
                 break;
             case 5:
-                combatti(giocatore1);
-                break;
-            case 6:
-                scappa(giocatore1);
-                break;
-            case 7:
                 prendi_tesoro(giocatore1);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore1);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1679,31 +2194,56 @@ void menu_giocatore3()
             if (giocatore2->p_vita <= 0)
             {
                 printf("\x1b[32m%s\x1b[37m è morto\n", giocatore2->nome_giocatore);
-                termina_gioco();
-                return;
+                break;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1714,22 +2254,16 @@ void menu_giocatore3()
                 break;
             case 3:
                 avanza(giocatore2);
-                apparizone_nemico(giocatore2);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore2);
                 break;
             case 5:
-                combatti(giocatore2);
-                break;
-            case 6:
-                scappa(giocatore2);
-                break;
-            case 7:
                 prendi_tesoro(giocatore2);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore2);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1745,28 +2279,54 @@ void menu_giocatore3()
                 termina_gioco();
                 return;
             }
-
+            if (apparso_nemico == true)
+            {
+                printf("puoi decidere di combatterlo oppure scappare \n");
+                printf("1-COMBATTI 2-SCAPPA\n");
+                do
+                {
+                    printf("cosa decici: ");
+                scanf("%d", &scelta_combatti_scappa);
+                pulizia_buffer();
+                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    {
+                        printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    }
+                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                if (scelta_combatti_scappa == 1)
+                {
+                    combatti(giocatore1);
+                }
+                else if (scelta_combatti_scappa == 2)
+                {
+                    scappa(giocatore1);
+                }
+                else
+                {
+                    printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
+                    break;
+                }
+                apparso_nemico = false;
+            }
             printf("\n***********************************\x1b[35m Gioca \x1b[37m*******************************************\n");
             printf("\x1b[36m 1\x1b[37m : stampa giocatore\n");
             printf("\x1b[36m 2\x1b[37m : stampa zona\n");
             printf("\x1b[36m 3\x1b[37m : avanza_giocatori\n");
             printf("\x1b[36m 4\x1b[37m : cerca_porta_segreta\n");
-            printf("\x1b[36m 5\x1b[37m : combatti\n");
-            printf("\x1b[36m 6\x1b[37m : scappa\n");
-            printf("\x1b[36m 7\x1b[37m : prendi tesoro\n");
-            printf("\x1b[36m 8\x1b[37m : passa turno\n");
+            printf("\x1b[36m 5\x1b[37m : prendi tesoro\n");
+            printf("\x1b[36m 6\x1b[37m : passa turno\n");
             printf("*************************************************************************************\n");
-            printf("digitare un comando tra quelli elencati: ");
 
             do
             {
+                printf("digitare un comando tra quelli elencati: ");
                 scanf("%d", &scelta_gioco);
+                pulizia_buffer();
                 if (scelta_gioco < 1 || scelta_gioco > 8)
                 {
                     printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
                 }
             } while (scelta_gioco < 1 || scelta_gioco > 8);
-
             switch (scelta_gioco)
             {
             case 1:
@@ -1777,22 +2337,16 @@ void menu_giocatore3()
                 break;
             case 3:
                 avanza(giocatore3);
-                apparizone_nemico(giocatore3);
                 break;
             case 4:
                 cerca_porta_segreta(giocatore3);
                 break;
             case 5:
-                combatti(giocatore3);
-                break;
-            case 6:
-                scappa(giocatore3);
-                break;
-            case 7:
                 prendi_tesoro(giocatore3);
                 break;
-            case 8:
+            case 6:
                 passa(giocatore3);
+                passa_turno = true;
                 break;
             default:
                 printf("\x1b[31m Errore, numero non compreso tra 1 e 8 \x1b[37m\n");
@@ -1800,7 +2354,12 @@ void menu_giocatore3()
             }
         } while (passa_turno == false);
         passa_turno = false;
-    } while (giocatore1->p_vita > 0 && giocatore2->p_vita > 0 && giocatore3->p_vita > 0 && vittoria == false);
+        if (giocatore1->p_vita <= 0 && giocatore2->p_vita <= 0 && giocatore3->p_vita <= 0)
+        {
+            printf("\x1b[32msono morti entrambi i giocatori\x1b[37m\n");
+            termina_gioco();
+        }
+    } while (vittoria == false);
 }
 void menu_gioca()
 {
@@ -1863,4 +2422,5 @@ void stampaMenu()
     printf("===========================\n");
     printf("Scegli un'opzione: ");
 }
+
 
