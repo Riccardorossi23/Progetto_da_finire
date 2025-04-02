@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <time.h>
 #include "gamelib.h"
-static void clear_buffer(void);
 
 // variabili per impostare il gioco
 bool creagiocatori = false;
@@ -44,7 +43,7 @@ int numero_stanza;
 // variabili gioco
 int scelta_gioco;
 bool vittoria = false;
-int random_combatti;
+int ordine_combatti;
 struct Nemico *Nemico;
 bool apparso_nemico = false;
 bool trabocchetto = false;
@@ -65,72 +64,103 @@ void termina_gioco()
     {
     case 1:
         printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        free(giocatore1);
+        giocatore1 = NULL;
         break;
     case 2:
         printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        free(giocatore1);
+        giocatore1 = NULL;
         printf("\x1b[32m%s\x1b[37m ha terminato il gioco\n", giocatore2->nome_giocatore);
+        free(giocatore2);
+        giocatore2 = NULL;
         break;
     case 3:
         printf("\x1b[33m%s\x1b[37m ha terminato il gioco\n", giocatore1->nome_giocatore);
+        free(giocatore1);
+        giocatore1 = NULL;
         printf("\x1b[32m%s\x1b[37m ha terminato il gioco\n", giocatore2->nome_giocatore);
+        free(giocatore2);
+        giocatore2 = NULL;
         printf("\x1b[35m%s\x1b[37m ha terminato il gioco\n", giocatore3->nome_giocatore);
+        free(giocatore3);
+        giocatore3 = NULL;
         break;
     default:
-        printf("\x1b[31m errore \x1b[37m\n");
+        printf("\x1b[31m errore, giocatori non deallocati \x1b[37m\n");
         break;
     }
     n_giocatori = 0;
-    free(giocatore1);
-    free(giocatore2);
-    free(giocatore3);
-    free(nuovastanza);
-    free(temp);
-    free(pLast);
-    free(pFirst);
-    free(prec);
+
+    // Libera la lista delle stanze
+    struct Stanza *curr = pFirst;
+    while (curr)
+    {
+        struct Stanza *next = curr->next; // Assumendo che la struttura abbia un puntatore al prossimo nodo
+        free(curr);
+        curr = next;
+    }
+    pFirst = NULL;
+    pLast = NULL;
+    prec = NULL;
+    temp = NULL;
+    nuovastanza = NULL;
+
     scelta_tipo_stanza = 0;
     scelta_tesoro = 0;
     scelta_trabocchetto = 0;
     posizione = 0;
     numero_stanza = 0;
-    // chiedo se vuoi rigiocare o meno, se si ti manda al menù d'inizio gioco, se è no invece termina la partita
-    printf("vuoi rigiocare si(1)|no(0)? ");
-    scanf("%d", &rigioca);
+
+    // Chiede se vuole rigiocare
+    printf("Vuoi rigiocare? si(1) | no(0): ");
+    if (scanf("%d", &rigioca) != 1)
+    {
+        printf("Errore nell'input.\n");
+        rigioca = 0;
+    }
     pulizia_buffer();
+
     if (rigioca == 1)
     {
         do
         {
             printf("\n");
-            printf("|||||||||||||||||||MENU PRINICIPALE||||||||||||||||||||||||\n");
-            printf("scegli tra imposta gioco, gioca, termina gioco\n"); // non funziona
-            printf("per scegliere imposta gioco premere 1 \n");
-            printf("per scgliere gioca premere 2 \n");
-            printf("per scegliere termina gioco premere 3 \n");
-            printf("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
-            printf("seleziona le opzioni: ");
-            scanf("%d", &opzioni);
-            while (getchar() != '\n')
-                ;
+            printf("||||||||||||||||||| MENU PRINCIPALE ||||||||||||||||||||||||\n");
+            printf("1. Imposta gioco\n");
+            printf("2. Gioca\n");
+            printf("3. Termina gioco\n");
+            printf("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
+            printf("Seleziona un'opzione: ");
+
+            if (scanf("%d", &opzioni) != 1)
+            {
+                printf("Input non valido. Riprova.\n");
+                pulizia_buffer();
+                continue;
+            }
+
+            pulizia_buffer();
+
             switch (opzioni)
             {
             case 1:
-                imposta_gioco(); // non funziona
+                imposta_gioco();
                 break;
             case 2:
                 gioca();
                 break;
+            case 3:
+                printf("Termina partita.\n");
+                return;
             default:
-                printf(" Attenzione! Opzione non valida, per favore inserisci numero da 1 a 3.\n");
-                break;
+                printf("Attenzione! Opzione non valida, per favore inserisci un numero da 1 a 3.\n");
             }
         } while (opzioni != 2);
-        printf("selezioni un valore corretto \n");
-        pulizia_buffer();
     }
     else
     {
-        printf("termina partita\n");
+        printf("Termina partita\n");
     }
 }
 void creagiocatore()
@@ -451,7 +481,7 @@ void creagiocatore()
 }
 void inserisci_stanza()
 {
-    struct Stanza *nuovastanza = (struct stanza *)malloc(sizeof(struct Stanza)); // creazione di una nuova stanza nella memoria
+    struct Stanza *nuovastanza = (struct Stanza *)malloc(sizeof(struct Stanza)); // creazione di una nuova stanza nella memoria
     do
     {
         printf("0:Corridoio\n");
@@ -932,7 +962,7 @@ void menu_imposta_mappa()
             case 3:
                 if (creazionemappa == true)
                 {
-                    stampa_mappa(pFirst);
+                    stampa_mappa();
                 }
                 else
                 {
@@ -1050,7 +1080,6 @@ void stampa_giocatore(struct Giocatore *g)
 }
 void stampa_zona(struct Giocatore *g)
 {
-    int prendere_tesoro;
     switch (g->posizione->tipo_stanza)
     {
     case 0:
@@ -1119,12 +1148,12 @@ void stampa_zona(struct Giocatore *g)
 }
 void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
 {
-    printf("sei dentro al metodo attacco_difesa\n");
+    bool parata = false;
     int dado1;
     int dado2;
     int dado3;
-    int dado4;
-    int dado5;
+    // int dado4;
+    // int dado5;
     int dado_nem1;
     int dado_nem2;
     int dado_nem3;
@@ -1132,6 +1161,7 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
     {
     case 0:
         dado1 = rand() % 6 + 1;
+        printf("il giocatore ha tiritato il dado:%d\n", dado1);
         break;
     case 1:
         if (g->dadi_attacco < 2 && g->dadi_difesa < 2)
@@ -1142,6 +1172,7 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
         {
             dado1 = rand() % 6 + 1;
             dado2 = rand() % 6 + 1;
+            printf("il giocatore ha tiritato i dadi:%d,%d\n", dado1, dado2);
         }
         break;
     case 2:
@@ -1154,6 +1185,7 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
             dado1 = rand() % 6 + 1;
             dado2 = rand() % 6 + 1;
             dado3 = rand() % 6 + 1;
+            printf("il giocatore ha tiritato i dadi:%d,%d,%d\n", dado1, dado2, dado3);
         }
         break;
     default:
@@ -1164,21 +1196,25 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
     {
     case 0:
         dado_nem1 = rand() % 6 + 1;
+        printf("il nemico ha tirato il dado:%d\n", dado_nem1);
         break;
     case 1:
         dado_nem1 = rand() % 6 + 1;
         dado_nem2 = rand() % 6 + 1;
+        printf("il nemico ha tiritato i dadi:%d,%d\n", dado_nem1, dado_nem2);
         break;
     case 2:
         dado_nem1 = rand() % 6 + 1;
         dado_nem2 = rand() % 6 + 1;
         dado_nem3 = rand() % 6 + 1;
+        printf("il nemico ha tiritato i dadi:%d,%d,%d\n", dado_nem1, dado_nem2, dado_nem3);
         break;
     default:
         printf("\x1b[31m errore nei dadi attcco giocatore\x1b[37m\n");
         break;
     }
-    if (random_combatti == 1)
+    printf("ordine combatti:%d\n", ordine_combatti);
+    if (ordine_combatti == 1)
     {
         if (Nemico->classe == 0)
         {
@@ -1188,91 +1224,164 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
                 {
                     printf("Lo Scheletro subisce un danno perdendo 2 vite\n");
                     Nemico->p_vita -= 2;
-                    g->p_vita++;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
                 else if (dado_nem1 == 6)
                 {
+                    parata = true;
                     printf("Lo Scheletro ha parato il colpo perchè il suo dado ha fatto 6\n");
                     printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                     g->dadi_attacco--;
+                    return;
                 }
                 else
                 {
                     printf("Lo Scheletro subisce un danno perdendo 1 vite\n");
                     Nemico->p_vita -= 1;
-                    g->p_vita++;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
             }
             if (dado1 <= dado_nem1)
             {
+                parata = true;
                 printf("Lo Scheletro ha parato il colpo, perchè ha estratto un numero più grande rispetto al giocatore\n");
                 printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                 g->dadi_attacco--;
+                return;
             }
         }
         else if (Nemico->classe == 1)
         {
-            if (dado1 >= 4 && dado1 > dado_nem1 || dado2 >= 4 && dado2 > dado_nem2)
+            if ((dado1 >= 4 && dado1 > dado_nem1) || (dado2 >= 4 && dado2 > dado_nem2))
             {
-                if (dado_nem1 != 6 || dado_nem2!=6 && dado1 == 6 || dado2==6)
+                if ((dado_nem1 != 6 && dado_nem2 != 6) && (dado1 == 6 || dado2 == 6))
                 {
                     printf("La Guardia subisce un danno perdendo 2 vite\n");
                     Nemico->p_vita -= 2;
-                    g->p_vita++;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
-                else if (dado_nem1 == 6 || dado_nem2==6)
+                else if (dado_nem1 == 6 || dado_nem2 == 6)
                 {
+                    parata = true;
                     printf("La Guardia ha parato il colpo perchè il suo dado ha fatto 6\n");
                     printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                     g->dadi_attacco--;
+                    return;
+                }
+                else if ((dado1 > dado_nem1) || (dado2 > dado_nem2))
+                {
+                    printf("la Guardia subisce un danno perdendo 1 vita\n");
+                    Nemico->p_vita--;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
                 else
                 {
-                    printf("La Guardia subisce un danno perdendo 1 vite\n");
-                    Nemico->p_vita -= 1;
-                    g->p_vita++;
+                    parata = true;
+                    printf("La guardia ha parato i colpi, perchè ha estratto un numero più grande rispetto al nemico\n");
+                    return;
                 }
             }
             if (dado1 <= dado_nem1 && dado2 <= dado_nem2)
             {
+                parata = true;
                 printf("La Guardia ha parato i colpi, perchè ha estratto un numero più grande rispetto al giocatore\n");
                 printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                 g->dadi_attacco--;
+                return;
             }
         }
         else
         {
-            if (dado1 >= 4 && dado1 > dado_nem1 || dado2 >= 4 && dado2 > dado_nem2 || dado3 >= 4 && dado3 > dado_nem3)
+            if ((dado1 >= 4 && dado1 > dado_nem1) || (dado2 >= 4 && dado2 > dado_nem2) || (dado3 >= 4 && dado3 > dado_nem3))
             {
-                if (dado_nem1 != 6 || dado_nem2!=6 || dado_nem3!=6 && dado1 == 6 || dado2==6 || dado3==6)
+                if ((dado_nem1 != 6 && dado_nem2 != 6 && dado_nem3 != 6) && (dado1 == 6 || dado2 == 6 || dado3 == 6))
                 {
                     printf("Lo Jaffer subisce un danno perdendo 2 vite\n");
                     Nemico->p_vita -= 2;
-                    g->p_vita++;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
-                else if (dado_nem1 == 6 || dado_nem2==6 || dado_nem3==6)
+                else if (dado_nem1 == 6 || dado_nem2 == 6 || dado_nem3 == 6)
                 {
+                    parata = true;
                     printf("Lo Jaffer ha parato il colpo perchè il suo dado ha fatto 6\n");
                     printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                     g->dadi_attacco--;
+                    return;
                 }
+                /* else if ((dado1 > dado_nem1) || (dado2 > dado_nem2) || (dado3 > dado_nem3))
+                 {
+                     printf("lo JAFFAR subisce un danno perdendo 1 vita\n");
+                     Nemico->p_vita--;
+                     return;
+                 }*/
                 else
                 {
                     printf("Lo JAFFER subisce un danno perdendo 1 vite\n");
                     Nemico->p_vita -= 1;
-                    g->p_vita++;
+                    if (g->p_vita < g->p_vita_max)
+                    {
+                        g->p_vita++;
+                    }
+                    else
+                    {
+                        printf("hai la vita al massimo\n");
+                    }
+                    return;
                 }
             }
             if (dado1 <= dado_nem1 && dado2 <= dado_nem2 && dado3 <= dado_nem3)
             {
+                parata = true;
                 printf("Lo JAFFER ha parato i colpi,erchè ha estratto un numero più grande rispetto al giocatore\n");
                 printf("essendo che ti ha parato un colpo, perdi un dado attacco\n");
                 g->dadi_attacco--;
+                return;
             }
             if (Nemico->p_vita <= 0)
             {
                 vittoria = true;
                 printf("%s ha salvato la principessa il gioco è finito\n", g->nome_giocatore);
+                return;
             }
         }
     }
@@ -1284,72 +1393,101 @@ void attacco_difesa(struct Giocatore *g, struct Nemico *Nemico)
             {
                 printf("Il giocatore subisce un danno perdendo 2 vite\n");
                 g->p_vita -= 2;
+                return;
             }
             else if (dado1 == 6)
             {
+                parata = true;
                 printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+                return;
             }
             else
             {
-                printf("Il giocatore subisce un danno perdendo 1 vite\n");
-                g->p_vita -= 1;
-            }
-            if (dado_nem1 <= dado1)
-            {
-                printf("Il giocatore ha parato il colpo, perchè ha estratto un numero più grande rispetto al giocatore\n");
-            }
-        }else if (Nemico->classe == 1)
-        {
-            if (dado_nem1 >= 4 && dado_nem1 > dado1 || dado_nem2 >= 4 && dado_nem2 > dado2)
-            {
-                if (dado1 != 6 || dado2!=6 && dado_nem1 == 6 || dado_nem2==6)
-                {
-                    printf("Il giocatore subisce un danno perdendo 2 vite\n");
-                    g->p_vita -= 2;
-                }
-                else if (dado1 == 6 || dado2==6)
-                {
-                    printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
-                }
-                else
-                {
-                    printf("Il giocatore subisce un danno perdendo 1 vite\n");
-                    g->p_vita -= 1;
-                }
-            }
-            if (dado_nem1 <= dado1 && dado_nem2 <= dado2)
-            {
-                printf("Il giocatore ha parato i colpi, perchè ha estratto un numero più grande rispetto al giocatore\n");
+                printf("Il giocatore subisce un danno perdendo 1 vita\n");
+                g->p_vita--;
+                return;
             }
         }
         else
         {
-            if (dado_nem1 >= 4 && dado_nem1 > dado1 || dado_nem2 >= 4 && dado_nem2 > dado2 || dado_nem3 >= 4 && dado_nem3 > dado3)
+            parata = true;
+            printf("Il giocatore ha parato il colpo, perchè ha estratto un numero più grande rispetto al nemico\n");
+            return;
+        }
+    }
+    if (Nemico->classe == 1)
+    {
+        // Controllo se il nemico ha fatto un dado >= 4 e se supera il dado del giocatore
+        if ((dado_nem1 >= 4 && dado_nem1 > dado1) || (dado_nem2 >= 4 && dado_nem2 > dado2))
+        {
+            // Se il giocatore non ha fatto un 6 e il nemico ha fatto un 6, il giocatore perde 2 punti vita
+            if ((dado1 != 6 && dado2 != 6) && (dado_nem1 == 6 || dado_nem2 == 6))
             {
-                if (dado1 != 6 || dado2!=6 || dado3!=6 && dado_nem1 == 6 || dado_nem2==6 || dado_nem3==6)
-                {
-                    printf("Il giocatore subisce un danno perdendo 2 vite\n");
-                    g->p_vita -= 2;
-                }
-                else if (dado1 == 6 || dado2==6 || dado3==6)
-                {
-                    printf("il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
-                }
-                else
-                {
-                    printf("il giocatore subisce un danno perdendo 1 vite\n");
-                    g->p_vita -= 1;
-                }
+                printf("Il giocatore subisce un danno perdendo 2 vite\n");
+                g->p_vita -= 2;
+                return;
             }
-            if (dado_nem1 <= dado1 && dado_nem2 <= dado2 && dado_nem3 <= dado3)
+            // Se il giocatore ha tirato almeno un 6, la parata ha successo
+            else if (dado1 == 6 || dado2 == 6)
             {
-                printf("Il giocatore ha parato i colpi,erchè ha estratto un numero più grande rispetto al giocatore\n");
+                parata = true;
+                printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+                return;
             }
-            if (Nemico->p_vita <= 0)
+            else
             {
-                vittoria = false;
-                printf("%s non ha salvato la principessa, può continuare a giocare per provarla a salvarla\n", g->nome_giocatore);
+                // Se nessuna delle condizioni sopra è vera, il giocatore perde 1 punto vita
+                g->p_vita--;
+                printf("Il giocatore subisce un danno perdendo 1 vita\n");
             }
+        }
+
+        // Se entrambi i dadi del nemico sono più piccoli o uguali ai dadi del giocatore, il giocatore para il colpo
+        if (dado_nem1 <= dado1 && dado_nem2 <= dado2)
+        {
+            parata = true;
+            printf("Il giocatore ha parato i colpi, perchè ha estratto un numero più grande rispetto al nemico\n");
+            return;
+        }
+    }
+    else
+    {
+        // Controllo se il nemico ha fatto un dado >= 4 e se supera il dado del giocatore
+        if ((dado_nem1 >= 4 && dado_nem1 > dado1) || (dado_nem2 >= 4 && dado_nem2 > dado2) || (dado_nem3 >= 4 && dado_nem3 > dado3))
+        {
+            // Se il giocatore non ha fatto un 6 e il nemico ha fatto un 6, il giocatore perde 2 punti vita
+            if ((dado1 != 6 && dado2 != 6 && dado3 != 6) && (dado_nem1 == 6 || dado_nem2 == 6 || dado_nem3 == 6))
+            {
+                printf("Il giocatore subisce un danno perdendo 2 vite\n");
+                g->p_vita -= 2;
+                return;
+            }
+            // Se il giocatore ha tirato almeno un 6, la parata ha successo
+            else if (dado1 == 6 || dado2 == 6 || dado3 == 6)
+            {
+                parata = true;
+                printf("Il giocatore ha parato il colpo perchè il suo dado ha fatto 6\n");
+                return;
+            }
+            else
+            {
+                // Se nessuna delle condizioni sopra è vera, il giocatore perde 1 punto vita
+                g->p_vita--;
+                printf("Il giocatore subisce un danno perdendo 1 vita\n");
+            }
+        }
+
+        // Se entrambi i dadi del nemico sono più piccoli o uguali ai dadi del giocatore, il giocatore para il colpo
+        if (dado_nem1 <= dado1 && dado_nem2 <= dado2 && dado_nem3 <= dado3)
+        {
+            parata = true;
+            printf("Il giocatore ha parato i colpi, perchè ha estratto un numero più grande rispetto al nemico\n");
+            return;
+        }
+        if (Nemico->p_vita <= 0)
+        {
+            vittoria = false;
+            printf("%s non ha salvato la principessa, può continuare a giocare per provarla a salvarla\n", g->nome_giocatore);
         }
     }
 }
@@ -1360,12 +1498,12 @@ void combatti(struct Giocatore *g)
     printf("\x1b[33mHai deciso di combattere...Buona fortuna\x1b[37m\n");
     printf("per sapere chi attachera e chi difenderà, dovrai tirare un dado inseme al nemico\n");
     printf("chi ha il punteggio più alto attacca\n");
-    random_combatti = rand() % 2 + 1;
+    int random_combatti = rand() % 2 + 1;
     if (random_combatti == 1)
     {
         printf("il primo a tirare il dado è:%s\n", g->nome_giocatore);
         dado_giocatore = rand() % 6 + 1;
-        printf("il numero uscito è:%d", dado_giocatore);
+        printf("il numero uscito è:%d\n", dado_giocatore);
         switch (Nemico->classe)
         {
         case 0:
@@ -1374,13 +1512,17 @@ void combatti(struct Giocatore *g)
         case 1:
             printf("ora il dado lo deve tirare Guardia\n");
             break;
+        case 2:
+            printf("ora il dado lo deve tirare JAFFAR\n");
+            break;
         default:
             printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
         }
         dado_nemico = rand() % 6 + 1;
-        printf("il numero uscito è:%d", dado_nemico);
+        printf("il numero uscito è:%d\n", dado_nemico);
         if (dado_giocatore > dado_nemico)
         {
+            ordine_combatti = 1;
             switch (Nemico->classe)
             {
             case 0:
@@ -1397,6 +1539,7 @@ void combatti(struct Giocatore *g)
         }
         else
         {
+            ordine_combatti = 2;
             switch (Nemico->classe)
             {
             case 0:
@@ -1419,12 +1562,26 @@ void combatti(struct Giocatore *g)
         case 0:
             printf("il primo a tirare il dado è: Scheletro\n");
             dado_nemico = rand() % 6 + 1;
-            printf("il numero uscito è:%d", dado_nemico);
+            printf("il numero uscito è:%d\n", dado_nemico);
+            printf("Ora il dado viene tirato da giocatore:%s\n", g->nome_giocatore);
+            dado_giocatore = rand() % 6 + 1;
+            printf("il numero uscito è:%d\n", dado_giocatore);
             break;
         case 1:
             printf("il primo a tirare il dado è: Guardia\n");
+            dado_nemico = rand() % 6 + 1;
+            printf("il numero uscito è:%d\n", dado_nemico);
+            printf("Ora il dado viene tirato da giocatore:%s\n", g->nome_giocatore);
             dado_giocatore = rand() % 6 + 1;
-            printf("il numero uscito è:%d", dado_giocatore);
+            printf("il numero uscito è:%d\n", dado_giocatore);
+            break;
+        case 2:
+            printf("il primo a tirare il dado è: JAFFAR\n");
+            dado_nemico = rand() % 6 + 1;
+            printf("il numero uscito è:%d\n", dado_nemico);
+            printf("Ora il dado viene tirato da giocatore:%s\n", g->nome_giocatore);
+            dado_giocatore = rand() % 6 + 1;
+            printf("il numero uscito è:%d\n", dado_giocatore);
             break;
         default:
             printf("\x1b[31m errore nella creazione del nemico\x1b[37m\n");
@@ -1432,6 +1589,7 @@ void combatti(struct Giocatore *g)
         if (dado_giocatore > dado_nemico)
         {
             printf("attacca per primo:%s\n", g->nome_giocatore);
+            ordine_combatti = 1;
             attacco_difesa(g, Nemico);
         }
         else
@@ -1440,10 +1598,17 @@ void combatti(struct Giocatore *g)
             {
             case 0:
                 printf("attacca per primo: Scheletro\n");
+                ordine_combatti = 2;
                 attacco_difesa(g, Nemico);
                 break;
             case 1:
                 printf("attacca per primo: Guardia\n");
+                ordine_combatti = 2;
+                attacco_difesa(g, Nemico);
+                break;
+            case 2:
+                printf("attacca per primo: JAFFAR\n");
+                ordine_combatti = 2;
                 attacco_difesa(g, Nemico);
                 break;
             default:
@@ -1469,6 +1634,7 @@ void applica_trabocchetto(struct Giocatore *g)
         trabocchetto = true;
         break;
     case 3:
+    {
         int danno_caduta = (rand() % 2) + 1;
         if (danno_caduta == 1)
         {
@@ -1481,7 +1647,8 @@ void applica_trabocchetto(struct Giocatore *g)
             g->p_vita -= 2;
         }
         trabocchetto = true;
-        break;
+    }
+    break;
     case 4:
         turni_avanzati = 1;
         int danno_burrone = (rand() % 2) + 1;
@@ -1621,9 +1788,6 @@ void avanza(struct Giocatore *g)
             return;
         }
 
-        printf("Giocatore avanzato nella nuova stanza: %p\n", (void *)g->posizione);
-        printf("Stanza precedente salvata in prec: %p\n", (void *)prec);
-
         apparizone_nemico(g);
 
         // Gestione del trabocchetto
@@ -1670,7 +1834,7 @@ void avanza(struct Giocatore *g)
 
 void prendi_tesoro(struct Giocatore *g)
 {
-    if (g->posizione->tipo_tesoro != NULL)
+    if (g->posizione->tipo_tesoro != NESSUN_TESORO)
     {
         printf("in questa stanza c'è un \x1b[33mTESORO \x1b[37m\n");
         printf("il tesoro trovato è: ");
@@ -1679,7 +1843,7 @@ void prendi_tesoro(struct Giocatore *g)
         case 1:
             printf("Verde Veleno\n");
             g->p_vita--;
-            printf("ora hai:%u di vita", g->p_vita);
+            printf("ora hai:%u di vita\n", g->p_vita);
             break;
         case 2:
             printf("Blu Guarigione\n");
@@ -1847,6 +2011,7 @@ void menu_giocatore1()
             {
                 printf("\x1b[33m%s\x1b[37m è morto\n", giocatore1->nome_giocatore);
                 termina_gioco();
+                return;
             }
             if (apparso_nemico == true)
             {
@@ -1855,13 +2020,13 @@ void menu_giocatore1()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
                     combatti(giocatore1);
@@ -1945,13 +2110,13 @@ void menu_giocatore2()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
                     combatti(giocatore1);
@@ -2027,20 +2192,20 @@ void menu_giocatore2()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
-                    combatti(giocatore1);
+                    combatti(giocatore2);
                 }
                 else if (scelta_combatti_scappa == 2)
                 {
-                    scappa(giocatore1);
+                    scappa(giocatore2);
                 }
                 else
                 {
@@ -2121,13 +2286,13 @@ void menu_giocatore3()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
                     combatti(giocatore1);
@@ -2203,20 +2368,20 @@ void menu_giocatore3()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
-                    combatti(giocatore1);
+                    combatti(giocatore2);
                 }
                 else if (scelta_combatti_scappa == 2)
                 {
-                    scappa(giocatore1);
+                    scappa(giocatore2);
                 }
                 else
                 {
@@ -2286,20 +2451,20 @@ void menu_giocatore3()
                 do
                 {
                     printf("cosa decici: ");
-                scanf("%d", &scelta_combatti_scappa);
-                pulizia_buffer();
-                    if (scelta_gioco < 1 || scelta_gioco > 2)
+                    scanf("%d", &scelta_combatti_scappa);
+                    pulizia_buffer();
+                    if (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2)
                     {
                         printf("\x1b[31m Errore, numero non compreso tra 1 e 2 \x1b[37m\n");
                     }
-                } while (scelta_gioco < 1 || scelta_gioco > 2);
+                } while (scelta_combatti_scappa < 1 || scelta_combatti_scappa > 2);
                 if (scelta_combatti_scappa == 1)
                 {
-                    combatti(giocatore1);
+                    combatti(giocatore3);
                 }
                 else if (scelta_combatti_scappa == 2)
                 {
-                    scappa(giocatore1);
+                    scappa(giocatore3);
                 }
                 else
                 {
@@ -2382,24 +2547,33 @@ void menu_gioca()
 }
 void gioca()
 {
-    switch (n_giocatori)
+    if (n_giocatori == 0)
     {
-    case 1:
-        giocatore1->posizione = pFirst;
-        break;
-    case 2:
-        giocatore1->posizione = pFirst;
-        giocatore2->posizione = pFirst;
-        break;
-    case 3:
-        giocatore1->posizione = pFirst;
-        giocatore2->posizione = pFirst;
-        giocatore3->posizione = pFirst;
-        break;
-
-    default:
         printf("\x1b[31m Errore: giocatori non inizializzati! \x1b[37m\n");
-        break;
+        imposta_gioco();
+    }
+    else
+    {
+        switch (n_giocatori)
+        {
+        case 1:
+            giocatore1->posizione = pFirst;
+            break;
+        case 2:
+            giocatore1->posizione = pFirst;
+            giocatore2->posizione = pFirst;
+            break;
+        case 3:
+            giocatore1->posizione = pFirst;
+            giocatore2->posizione = pFirst;
+            giocatore3->posizione = pFirst;
+            break;
+
+        default:
+            printf("\x1b[31m Errore: giocatori non inizializzati! \x1b[37m\n");
+            imposta_gioco();
+            break;
+        }
     }
     menu_gioca();
 }
@@ -2410,17 +2584,4 @@ void crediti()
     printf("Crediti:\n");
     printf("Sviluppato da: Rossi Riccardo \n");
 }
-
-// Funzione che stampa il menu di gioco
-void stampaMenu()
-{
-    printf("====== MENU DI GIOCO ======\n");
-    printf("1) Imposta gioco\n");
-    printf("2) Gioca\n");
-    printf("3) Termina gioco\n");
-    printf("4) Visualizza i crediti\n");
-    printf("===========================\n");
-    printf("Scegli un'opzione: ");
-}
-
 
